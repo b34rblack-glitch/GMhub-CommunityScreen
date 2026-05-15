@@ -46,6 +46,12 @@ export default [
     },
   },
   {
+    files: ["scripts/lib/logger.mjs"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
     ignores: ["node_modules/**", "dist/**", "*.min.js"],
   },
 ];
