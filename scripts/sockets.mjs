@@ -2,6 +2,10 @@
 
 import { MODULE_ID } from "./module.mjs";
 import { logger } from "./lib/logger.mjs";
+import { setUiHidden } from "./ui-hiding.mjs";
+import { engageLock, disengageLock } from "./canvas-lock.mjs";
+import { isTableUser } from "./identity.mjs";
+import { set as setSetting, get as getSetting } from "./settings.mjs";
 
 /**
  * The socketlib module handle for this module. Populated by `register()`.
@@ -17,7 +21,7 @@ export function getSocket() {
 }
 
 /**
- * Stub handler factory. Logs the call so we can see RPC plumbing during Phase 1.
+ * Stub handler factory. Logs the call so we can see RPC plumbing.
  *
  * @param {string} name - Handler name.
  * @returns {Function}
@@ -30,8 +34,7 @@ function stub(name) {
 
 /**
  * Internal registry of handler names → implementations. Feature modules can
- * call `setHandler(name, fn)` to override the stub before the real handlers
- * are wired in later phases.
+ * call `setHandler(name, fn)` to override a stub.
  *
  * @type {Map<string, Function>}
  */
@@ -39,8 +42,7 @@ const handlers = new Map();
 
 /**
  * Replace a stub with a real implementation. Safe to call before or after
- * `register()` — re-registration via socketlib happens immediately if the
- * socket is already up.
+ * `register()`.
  *
  * @param {string} name - Handler name.
  * @param {Function} fn - Async or sync handler.
@@ -58,6 +60,55 @@ export function setHandler(name, fn) {
 }
 
 /**
+ * Apply a Table mode locally on the Table client: pair UI hiding with the
+ * canvas lock. "play" hides UI and engages the lock; "setup" reveals UI
+ * and disengages.
+ *
+ * @param {{mode: "play" | "setup"}} payload
+ * @returns {Promise<void>}
+ */
+async function _setTableMode({ mode } = {}) {
+  if (!isTableUser()) return;
+  const next = mode === "setup" ? "setup" : "play";
+  try {
+    await setSetting("table-mode", next);
+  } catch (err) {
+    logger.warn("Failed to persist table-mode:", err);
+  }
+  if (next === "play") {
+    setUiHidden(true);
+    engageLock();
+  } else {
+    setUiHidden(false);
+    disengageLock();
+  }
+  logger.info(`Table mode → ${next}`);
+}
+
+/**
+ * Toggle Table mode play ↔ setup.
+ *
+ * @returns {Promise<void>}
+ */
+async function _toggleTableMode() {
+  if (!isTableUser()) return;
+  const current = getSetting("table-mode", "play");
+  const next = current === "play" ? "setup" : "play";
+  return _setTableMode({ mode: next });
+}
+
+/**
+ * Set UI hidden state (without touching the canvas lock).
+ *
+ * @param {{hidden: boolean}} payload
+ * @returns {void}
+ */
+function _setUiHidden({ hidden } = {}) {
+  if (!isTableUser()) return;
+  setUiHidden(Boolean(hidden));
+}
+
+/**
  * Register the module with socketlib and bind every handler name we expect.
  * Called from `Hooks.once("socketlib.ready")` in `main.mjs`.
  *
@@ -69,6 +120,11 @@ export function register() {
     return;
   }
   cs = socketlib.registerModule(MODULE_ID);
+
+  // Real handlers wired in this phase.
+  handlers.set("setTableMode", _setTableMode);
+  handlers.set("toggleTableMode", _toggleTableMode);
+  handlers.set("setUiHidden", _setUiHidden);
 
   const names = [
     "showJournal",
@@ -94,7 +150,7 @@ export function register() {
 
 /**
  * Invoke a handler on a specific user's client. Wraps socketlib's
- * `executeAsUser` with a try/catch and a localized warning on failure.
+ * `executeAsUser` with try/catch and a localized warning on failure.
  *
  * @param {string} handler - Handler name registered above.
  * @param {string} userId - Target user id.

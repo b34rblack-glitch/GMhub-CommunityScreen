@@ -1,1 +1,46 @@
 /* community-screen — body-class UI hiding for the Table client */
+
+@layer modules {
+  body.community-screen-hidden #sidebar,
+  body.community-screen-hidden #hotbar,
+  body.community-screen-hidden #players,
+  body.community-screen-hidden #scene-navigation,
+  body.community-screen-hidden #navigation,
+  body.community-screen-hidden #controls,
+  body.community-screen-hidden #logo,
+  body.community-screen-hidden #ui-top,
+  body.community-screen-hidden #ui-bottom,
+  body.community-screen-hidden #ui-left,
+  body.community-screen-hidden #ui-right,
+  body.community-screen-hidden #notifications,
+  body.community-screen-hidden #chat-form,
+  body.community-screen-hidden #fps {
+    display: none !important;
+  }
+
+  body.community-screen-hidden #board {
+    cursor: default;
+  }
+
+  body.community-screen-locked #board {
+    cursor: default !important;
+  }
+}
+
+/* Fallback if @layer modules isn't applied for some reason. */
+body.community-screen-hidden #sidebar,
+body.community-screen-hidden #hotbar,
+body.community-screen-hidden #players,
+body.community-screen-hidden #scene-navigation,
+body.community-screen-hidden #navigation,
+body.community-screen-hidden #controls,
+body.community-screen-hidden #logo,
+body.community-screen-hidden #ui-top,
+body.community-screen-hidden #ui-bottom,
+body.community-screen-hidden #ui-left,
+body.community-screen-hidden #ui-right,
+body.community-screen-hidden #notifications,
+body.community-screen-hidden #chat-form,
+body.community-screen-hidden #fps {
+  display: none !important;
+}
