@@ -204,6 +204,28 @@ Open a scene config from the GM laptop. There's a "Community Screen → Fit
 mode for the Table" select — pick contain / cover / width / height /
 native for that scene. World default is in module settings.
 
+## Releases
+
+Releases are automated. When a pull request is merged into `main`, a
+GitHub Actions workflow bumps the version (`module.json` and
+`package.json`), commits the bump, builds `module.zip`, and publishes a
+GitHub Release. Foundry's "Check for Updates" sees the new version and
+offers it to existing installs.
+
+PR labels control the bump level:
+
+| Label           | Effect                                 |
+| --------------- | -------------------------------------- |
+| `release:major` | `X.Y.Z` → `(X+1).0.0`                  |
+| `release:minor` | `X.Y.Z` → `X.(Y+1).0`                  |
+| `release:none`  | Skip the release for this PR           |
+| _(no label)_    | `X.Y.Z` → `X.Y.(Z+1)` (patch, default) |
+
+To re-publish the current version without bumping (e.g. to refresh
+assets after a CI hiccup), run the **Release (manual / tag)** workflow
+from the Actions tab with `workflow_dispatch`. Pushing an explicit
+`v*.*.*` tag also cuts a release at that tag.
+
 ## Roadmap
 
 See [`docs/design.md`](docs/design.md) §8 for the full plan. Highlights:
