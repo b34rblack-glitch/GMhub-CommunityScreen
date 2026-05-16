@@ -1,8 +1,13 @@
-name: Release
+name: Release (manual / tag)
+
+# Manual rebuild of the release for the version currently in module.json.
+# The main flow is `release-on-merge.yml`, which handles PR-merge bumps
+# and the standard release pipeline. This workflow is kept as an escape
+# hatch — fire it via `workflow_dispatch` to re-publish a release without
+# bumping, or push a `v*.*.*` tag explicitly to (re-)cut that release.
 
 on:
   push:
-    branches: [main]
     tags:
       - "v*.*.*"
   workflow_dispatch: {}

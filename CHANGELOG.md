@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Auto-release on PR merge.** A new workflow
+  (`.github/workflows/release-on-merge.yml`) inspects merged PRs and
+  publishes a release with an appropriately bumped version. Labels
+  control the bump level: `release:major`, `release:minor`,
+  `release:none` (skip); default is patch. Bumps `module.json` +
+  `package.json`, commits the bump to `main`, builds the zip, and
+  publishes the GitHub Release in one shot. Foundry's "Check for
+  Updates" then picks up the new version automatically — no manual
+  tag push or version edit required.
+- **`workflow_dispatch` re-publish.** The existing `release.yml` is
+  retained as an escape hatch for re-publishing the current version or
+  cutting a release from an explicit `v*.*.*` tag push, but its
+  push-to-main trigger has been removed to avoid colliding with the
+  auto-release workflow.
+
 ### Changed
 
 - **Combat vision focus now follows the combat tracker's active combatant**

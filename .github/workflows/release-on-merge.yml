@@ -1,0 +1,144 @@
+name: Release on PR merge
+
+# When a pull request is merged into `main`, this workflow:
+#   1. Decides a semver bump level from the PR's labels:
+#        release:none  → skip the release entirely
+#        release:major → X+1.0.0
+#        release:minor → X.Y+1.0
+#        (no label)    → X.Y.Z+1  (default: patch)
+#   2. Updates module.json and package.json with the new version.
+#   3. Commits the bump back to main (no PR — direct push by the bot).
+#      GITHUB_TOKEN pushes don't re-trigger workflows, so no loop.
+#   4. Builds module.zip (wrapped in a top-level community-screen/ dir
+#      so it extracts cleanly into Foundry's Data/modules/ tree).
+#   5. Publishes a GitHub Release tagged v<new-version> with module.json
+#      and module.zip as assets. Foundry's "Check for Updates" sees the
+#      new version string and offers the update to installed modules.
+#
+# Also supports manual `workflow_dispatch` for re-publishing on demand.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semver bump level"
+        type: choice
+        options: [patch, minor, major, none]
+        default: patch
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Bump version and publish release
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide bump level
+        id: level
+        env:
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          DISPATCH_BUMP: ${{ inputs.bump }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            level="$DISPATCH_BUMP"
+          else
+            # PR labels: a JSON array of strings.
+            if echo "$PR_LABELS" | grep -q '"release:none"'; then
+              level=none
+            elif echo "$PR_LABELS" | grep -q '"release:major"'; then
+              level=major
+            elif echo "$PR_LABELS" | grep -q '"release:minor"'; then
+              level=minor
+            else
+              level=patch
+            fi
+          fi
+          echo "level=$level" >> "$GITHUB_OUTPUT"
+          echo "Determined bump level: $level"
+
+      - name: Skip release
+        if: steps.level.outputs.level == 'none'
+        run: echo "release:none label present (or manual none) — exiting without bumping or publishing."
+
+      - name: Bump module.json + package.json
+        if: steps.level.outputs.level != 'none'
+        id: ver
+        run: |
+          OLD=$(node -e "console.log(require('./module.json').version)")
+          IFS='.' read -ra P <<< "$OLD"
+          case "${{ steps.level.outputs.level }}" in
+            major) NEW="$((P[0]+1)).0.0" ;;
+            minor) NEW="${P[0]}.$((P[1]+1)).0" ;;
+            patch) NEW="${P[0]}.${P[1]}.$((P[2]+1))" ;;
+            *)     echo "Unknown bump level: ${{ steps.level.outputs.level }}" >&2; exit 1 ;;
+          esac
+          echo "Bumping ${OLD} -> ${NEW}"
+          node <<EOF
+            const fs = require("fs");
+            const m = JSON.parse(fs.readFileSync("module.json", "utf8"));
+            m.version = "${NEW}";
+            if (typeof m.download === "string") {
+              m.download = m.download.replace(/v\d+\.\d+\.\d+/, "v${NEW}");
+            }
+            fs.writeFileSync("module.json", JSON.stringify(m, null, 2) + "\n");
+            const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            p.version = "${NEW}";
+            fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
+          EOF
+          echo "version=${NEW}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${NEW}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit version bump
+        if: steps.level.outputs.level != 'none'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add module.json package.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit (version already at target)."
+            exit 0
+          fi
+          git commit -m "chore(release): v${{ steps.ver.outputs.version }}"
+          git push origin main
+
+      - name: Build module.zip
+        if: steps.level.outputs.level != 'none'
+        run: |
+          mkdir -p staging/community-screen
+          cp -r \
+            module.json \
+            README.md \
+            LICENSE \
+            CHANGELOG.md \
+            scripts \
+            styles \
+            templates \
+            lang \
+            staging/community-screen/
+          (cd staging && zip -r ../module.zip community-screen)
+          ls -lh module.zip
+
+      - name: Publish GitHub Release
+        if: steps.level.outputs.level != 'none'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.ver.outputs.tag }}
+          tag_name: ${{ steps.ver.outputs.tag }}
+          files: |
+            module.zip
+            module.json
+          generate_release_notes: true
+          fail_on_unmatched_files: true
