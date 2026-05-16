@@ -7,7 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Dropped optional Sequencer and JB2A integration; baked the visual
+  in.** The module is now fully self-contained. The previous "auto-
+  upgrade to Sequencer + JB2A" code path used JB2A's rune-circle sprite
+  as a richer alternative to the built-in ring. That visual is now
+  reproduced natively in PIXI v7 by the new **`ornate`** highlight
+  style: three concentric rings, procedurally drawn rune-like glyphs
+  at each spoke position (four glyph patterns, deterministic per
+  spoke), a counter-rotating outer halo, a counter-rotating glyph
+  layer with pulsing alpha, and a `PIXI.BlurFilter` glow. No external
+  modules, no bundled assets. Existing `subtle` / `default` /
+  `dramatic` styles unchanged.
+- `module.json.relationships.recommends` is now empty. The only
+  module dependencies are `socketlib` and `lib-wrapper` (both required).
+
 ### Fixed
+
+- **Push to Table reliability.** Added a 200ms settle delay between the
+  GM-side `ensureTableObserver()` write and the immediately-following
+  `executeAsUser()` socket call so the ownership update has time to
+  propagate to the Table client's local cache. Table-side `_show*`
+  handlers retry `fromUuid` once with a 400ms wait if the first attempt
+  returns null. Portraits now ship the actor's `img` URL inline so the
+  Table never has to `fromUuid` the actor at all. Prominent
+  `[Community Screen]` info-level logging on both sides for diagnosis.
+- **Combat vision reliability.** Same propagation-delay pattern in
+  `broadcastFocus()` when a just-in-time `ensureTableObserver()` grant
+  was actually applied. The Table-side `_setVisionFocus` now warns
+  loudly when `Token.control()` is denied (the symptom of a
+  not-yet-propagated permission grant).
+- **`sleep()` helper** added to `scripts/lib/helpers.mjs`.
+
+### Fixed (previous)
 
 - **Refit Scene button now actually refits.** The control palette
   previously dispatched `followScene`, which is a no-op when the Table
