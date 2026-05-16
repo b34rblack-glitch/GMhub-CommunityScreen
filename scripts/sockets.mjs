@@ -4,6 +4,7 @@ import { MODULE_ID } from "./module.mjs";
 import { logger } from "./lib/logger.mjs";
 import { setUiHidden } from "./ui-hiding.mjs";
 import { engageLock, disengageLock } from "./canvas-lock.mjs";
+import { fitSceneToTable } from "./scene-fit.mjs";
 import { isTableUser } from "./identity.mjs";
 import { set as setSetting, get as getSetting } from "./settings.mjs";
 
@@ -109,6 +110,22 @@ function _setUiHidden({ hidden } = {}) {
 }
 
 /**
+ * Recompute scene fit on the Table client. Used by the GM control palette's
+ * "Refit Scene" button (since followScene is a no-op when the Table is
+ * already on the target scene).
+ *
+ * @returns {Promise<void>}
+ */
+async function _refitScene() {
+  if (!isTableUser()) return;
+  try {
+    await fitSceneToTable();
+  } catch (err) {
+    logger.warn("refitScene failed:", err);
+  }
+}
+
+/**
  * Register the module with socketlib and bind every handler name we expect.
  * Called from `Hooks.once("socketlib.ready")` in `main.mjs`.
  *
@@ -125,6 +142,7 @@ export function register() {
   handlers.set("setTableMode", _setTableMode);
   handlers.set("toggleTableMode", _toggleTableMode);
   handlers.set("setUiHidden", _setUiHidden);
+  handlers.set("refitScene", _refitScene);
 
   const names = [
     "showJournal",
@@ -138,6 +156,7 @@ export function register() {
     "followScene",
     "followLevel",
     "toggleTableMode",
+    "refitScene",
   ];
 
   for (const name of names) {

@@ -101,6 +101,42 @@ function warnIfNoVision() {
 }
 
 /**
+ * Just-in-time grant of OBSERVER (or higher) ownership to the Table user
+ * on any document. Used by push-buttons (so the Table can render the doc
+ * the GM is pushing) and by vision (so Token.control on an NPC combatant
+ * doesn't silently fail).
+ *
+ * Idempotent: skipped if the Table user is already at or above `level`.
+ * Must be called from a GM client.
+ *
+ * @param {Document} doc - Any document with `.ownership`. Pass an Actor
+ *   when granting for vision/control; a JournalEntry/Item/etc for push.
+ * @param {number} [level] - Defaults to OBSERVER.
+ * @returns {Promise<void>}
+ */
+export async function ensureTableObserver(doc, level = OWNERSHIP().OBSERVER ?? 2) {
+  if (!isGM()) return;
+  if (!doc) return;
+  if (typeof doc.update !== "function") return;
+  const tableId = getTableUserId();
+  if (!tableId) return;
+
+  const current = doc.ownership?.[tableId] ?? doc.ownership?.default ?? 0;
+  if (current >= level) return;
+
+  const ownership = foundry.utils.deepClone(doc.ownership ?? {});
+  ownership[tableId] = level;
+  try {
+    await doc.update({ ownership });
+    logger.debug(
+      `Granted ownership ${level} on ${doc.documentName} "${doc.name ?? doc.id}" to Table user.`,
+    );
+  } catch (err) {
+    logger.warn(`Failed to grant ownership on ${doc.documentName} "${doc.name ?? doc.id}":`, err);
+  }
+}
+
+/**
  * Register ownership-related hooks. Idempotent.
  *
  * @returns {void}

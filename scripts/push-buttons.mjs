@@ -2,6 +2,7 @@
 
 import { isGM, getTableUserId, isTableOnline } from "./identity.mjs";
 import { executeAsUser } from "./sockets.mjs";
+import { ensureTableObserver } from "./ownership.mjs";
 import { t } from "./lib/helpers.mjs";
 import { logger } from "./lib/logger.mjs";
 
@@ -29,6 +30,13 @@ async function pushDocument(doc) {
   const uuid = doc.uuid;
   const type = doc.documentName;
   try {
+    // Grant the Table user OBSERVER on the document so fromUuid() resolves
+    // on their client and the sheet has permission to render. Scenes don't
+    // need this for followScene; portraits operate on the actor's image
+    // path and don't require sheet-level access, but bumping ownership
+    // ensures consistent behavior across system-specific sheets.
+    if (type !== "Scene") await ensureTableObserver(doc);
+
     if (type === "JournalEntry") {
       await executeAsUser("showJournal", tableId, { uuid });
     } else if (type === "Item") {

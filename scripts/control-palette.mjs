@@ -87,9 +87,10 @@ class ControlPalette extends foundry.applications.api.HandlebarsApplicationMixin
       return;
     }
     try {
-      // Push current scene; the followScene handler will trigger canvasReady → fit.
-      const sceneId = canvas?.scene?.id;
-      if (sceneId) await executeAsUser("followScene", tableId, { sceneId });
+      // Trigger an explicit refit on the Table client. followScene is a
+      // no-op when the Table is already viewing the current scene, so we
+      // dispatch a dedicated refitScene handler instead.
+      await executeAsUser("refitScene", tableId);
     } catch (err) {
       logger.debug("refit dispatch failed:", err);
     }
