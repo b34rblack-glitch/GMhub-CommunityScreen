@@ -3,6 +3,7 @@
 
 import { isGM, isTableUser, getTableUserId, isTableOnline } from "./identity.mjs";
 import { executeAsUser, setHandler } from "./sockets.mjs";
+import { ensureTableObserver } from "./ownership.mjs";
 import { logger } from "./lib/logger.mjs";
 
 /**
@@ -69,7 +70,26 @@ async function broadcastFocus(combat) {
   const tableId = getTableUserId();
   if (!tableId) return;
 
-  const tokenId = activeCombatantTokenId(combat);
+  const c = combat ?? game.combats?.active;
+  const tokenId = activeCombatantTokenId(c);
+
+  // If we're about to ask the Table to focus on a token, make sure the
+  // Table user has at least OBSERVER on the underlying actor — otherwise
+  // Token.control() silently no-ops on their client (permission check
+  // fails). PCs already get OWNER via ownership.syncAll(); this handles
+  // NPC combatants on the fly.
+  if (tokenId) {
+    const combatant = c?.combatant;
+    const actor = combatant?.actor ?? combatant?.token?.actor;
+    if (actor) {
+      try {
+        await ensureTableObserver(actor);
+      } catch (err) {
+        logger.debug("ensureTableObserver on combatant actor failed:", err);
+      }
+    }
+  }
+
   try {
     await executeAsUser("setVisionFocus", tableId, { tokenId });
   } catch (err) {

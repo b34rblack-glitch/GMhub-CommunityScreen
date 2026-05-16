@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Refit Scene button now actually refits.** The control palette
+  previously dispatched `followScene`, which is a no-op when the Table
+  is already on the current scene. Added a dedicated `refitScene`
+  socket handler that calls `fitSceneToTable()` on the Table client.
+- **Push to Table now displays content even on docs the Table user
+  has no permission on.** Player-role users default to no access on
+  most journals/items, so `fromUuid()` was returning null on the Table
+  client and the sheet never rendered. The GM client now just-in-time
+  grants OBSERVER on the document before dispatching the push (via a
+  new `ensureTableObserver()` helper in `ownership.mjs`).
+- **Combat vision now switches on NPC turns too.** `Token.control()`
+  silently no-ops when the user lacks OBSERVER on the underlying
+  actor, so vision was sticking to the last PC token whenever the
+  tracker advanced to an NPC. The GM-side `broadcastFocus()` now
+  calls `ensureTableObserver(combatant.actor)` before sending the
+  focus to the Table, mirroring the PC auto-grant pattern for ad-hoc
+  NPC combatants.
+
 ### Added
 
 - **Auto-release on PR merge.** A new workflow
