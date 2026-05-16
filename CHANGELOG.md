@@ -9,13 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Dropped optional Sequencer and JB2A integration.** The module is now
-  fully self-contained — no recommended modules. The previous "auto-
-  upgrade to Sequencer + JB2A" code path has been removed in favor of a
-  richer native PIXI v7 style. Added a new **`ornate`** highlight style
-  with multi-ring graphics, counter-rotating outer halo, and a
-  `PIXI.BlurFilter` glow. Existing `subtle` / `default` / `dramatic`
-  styles unchanged.
+- **Dropped optional Sequencer and JB2A integration; baked the visual
+  in.** The module is now fully self-contained. The previous "auto-
+  upgrade to Sequencer + JB2A" code path used JB2A's rune-circle sprite
+  as a richer alternative to the built-in ring. That visual is now
+  reproduced natively in PIXI v7 by the new **`ornate`** highlight
+  style: three concentric rings, procedurally drawn rune-like glyphs
+  at each spoke position (four glyph patterns, deterministic per
+  spoke), a counter-rotating outer halo, a counter-rotating glyph
+  layer with pulsing alpha, and a `PIXI.BlurFilter` glow. No external
+  modules, no bundled assets. Existing `subtle` / `default` /
+  `dramatic` styles unchanged.
 - `module.json.relationships.recommends` is now empty. The only
   module dependencies are `socketlib` and `lib-wrapper` (both required).
 

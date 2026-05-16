@@ -31,7 +31,7 @@
         "subtle": "Subtle",
         "default": "Default",
         "dramatic": "Dramatic",
-        "ornate": "Ornate (glow + halo)"
+        "ornate": "Ornate (glyphs + glow + halo)"
       },
       "highlight-use-disposition": {
         "name": "Color Highlight by Disposition",

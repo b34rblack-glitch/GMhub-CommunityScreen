@@ -113,6 +113,29 @@ export class ActiveTurnHighlight {
     }
     g.addChild(ring);
 
+    // Ornate-only: a third concentric ring and procedural "runic" glyph
+    // marks at each spoke, plus a counter-rotating glyph-decoration layer.
+    // Replaces what the optional JB2A rune-circle asset used to provide,
+    // entirely in native PIXI v7.
+    let glyphLayer = null;
+    if (style === "ornate") {
+      ring
+        .lineStyle(2, color, 0.5)
+        .drawCircle(0, 0, radius * 0.72)
+        .lineStyle(1, 0xffffff, 0.3)
+        .drawCircle(0, 0, radius * 0.66);
+
+      glyphLayer = new PIXI.Graphics();
+      const glyphRadius = radius * 0.93;
+      for (let i = 0; i < spokes; i++) {
+        const a = (i / spokes) * Math.PI * 2;
+        const cx = Math.cos(a) * glyphRadius;
+        const cy = Math.sin(a) * glyphRadius;
+        drawGlyph(glyphLayer, cx, cy, a, 10, color);
+      }
+      g.addChild(glyphLayer);
+    }
+
     if (glowBlur > 0) {
       try {
         const blur = new PIXI.BlurFilter(glowBlur, 4);
@@ -140,6 +163,12 @@ export class ActiveTurnHighlight {
         // Counter-rotate the halo for a richer feel.
         halo.rotation -= rotSpeed * 0.5 * delta;
       }
+      if (glyphLayer) {
+        // Counter-rotate the runic glyph layer relative to the parent,
+        // and gently pulse its alpha so the glyphs feel "alive".
+        glyphLayer.rotation -= rotSpeed * 1.2 * delta;
+        glyphLayer.alpha = 0.65 + Math.sin(performance.now() / 220) * 0.25;
+      }
       if (this.tok?.center) this.gfx.position.set(this.tok.center.x, this.tok.center.y);
     };
     canvas.app?.ticker?.add(this.tick);
@@ -165,6 +194,77 @@ export class ActiveTurnHighlight {
       this.tick = null;
     }
     this.tok = null;
+  }
+}
+
+/**
+ * Draw a small procedural "rune" glyph at (cx, cy) on the given PIXI.Graphics,
+ * oriented along `tangentAngle` (so the glyph points outward from the ring
+ * center). Uses a deterministic shape seed derived from the position so each
+ * spoke has a distinct-looking mark without needing bundled assets.
+ *
+ * Pure PIXI v7 line drawing. Replaces the visual that JB2A's rune-circle
+ * sprite used to provide via Sequencer.
+ *
+ * @param {PIXI.Graphics} g
+ * @param {number} cx
+ * @param {number} cy
+ * @param {number} tangentAngle - Radians; the angle from the ring center to (cx, cy).
+ * @param {number} size - Approximate glyph size in canvas pixels.
+ * @param {number} color
+ * @returns {void}
+ */
+function drawGlyph(g, cx, cy, tangentAngle, size, color) {
+  // Pick one of four glyph patterns based on a stable seed from the position.
+  const seed = Math.abs(Math.round(Math.cos(tangentAngle * 7.3) * 1000)) % 4;
+  const cos = Math.cos(tangentAngle);
+  const sin = Math.sin(tangentAngle);
+  // Local axes: along = outward from ring center; across = tangent.
+  const ax = cos;
+  const ay = sin;
+  const bx = -sin;
+  const by = cos;
+  const point = (a, b) => [cx + a * ax + b * bx, cy + a * ay + b * by];
+  g.lineStyle(1.5, color, 0.9);
+
+  switch (seed) {
+    case 0: {
+      // Vertical bar with crossbar (rune-like "T")
+      const [x1, y1] = point(-size / 2, 0);
+      const [x2, y2] = point(size / 2, 0);
+      const [x3, y3] = point(size / 2 - 2, -size / 3);
+      const [x4, y4] = point(size / 2 - 2, size / 3);
+      g.moveTo(x1, y1).lineTo(x2, y2);
+      g.moveTo(x3, y3).lineTo(x4, y4);
+      break;
+    }
+    case 1: {
+      // Triangle pointing outward
+      const [x1, y1] = point(size / 2, 0);
+      const [x2, y2] = point(-size / 2, size / 3);
+      const [x3, y3] = point(-size / 2, -size / 3);
+      g.moveTo(x1, y1).lineTo(x2, y2).lineTo(x3, y3).lineTo(x1, y1);
+      break;
+    }
+    case 2: {
+      // Diamond
+      const [x1, y1] = point(size / 2, 0);
+      const [x2, y2] = point(0, size / 2);
+      const [x3, y3] = point(-size / 2, 0);
+      const [x4, y4] = point(0, -size / 2);
+      g.moveTo(x1, y1).lineTo(x2, y2).lineTo(x3, y3).lineTo(x4, y4).lineTo(x1, y1);
+      break;
+    }
+    default: {
+      // Two short parallel strokes (rune-like "II")
+      const [x1, y1] = point(-size / 3, -size / 3);
+      const [x2, y2] = point(size / 3, -size / 3);
+      const [x3, y3] = point(-size / 3, size / 3);
+      const [x4, y4] = point(size / 3, size / 3);
+      g.moveTo(x1, y1).lineTo(x2, y2);
+      g.moveTo(x3, y3).lineTo(x4, y4);
+      break;
+    }
   }
 }
 
