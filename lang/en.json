@@ -155,7 +155,12 @@
         "title": "Table user",
         "body": "Pick the dedicated player-role user that drives the shared TV. You can create a new one now or point the module at a user you already have.",
         "mode-create": "Create a new \"Table\" player user",
-        "mode-select": "Use an existing user"
+        "mode-select": "Use an existing user",
+        "create-hint": "A new player-role user named \"Table\" is created when you finish. It has no password by default — set one later from Foundry's user-management screen if the shared TV needs to log in unattended.",
+        "select-label": "Existing user",
+        "empty": "There are no non-GM users to choose from yet. Choose \"Create a new Table player user\" above instead.",
+        "reuse": "A user named \"{name}\" already exists. Reuse it instead of creating a second \"Table\" user — duplicate names make the Table user ambiguous.",
+        "reuse-action": "Reuse this user"
       },
       "settings": {
         "title": "Recommended defaults",

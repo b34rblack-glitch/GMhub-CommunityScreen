@@ -25,7 +25,7 @@
 // ============================================================================
 
 import { MODULE_ID } from "./module.mjs";
-import { isGM } from "./identity.mjs";
+import { isGM, getTableUser } from "./identity.mjs";
 import { set as setSetting } from "./settings.mjs";
 import { t } from "./lib/helpers.mjs";
 import { logger } from "./lib/logger.mjs";
@@ -37,6 +37,8 @@ import {
   evaluateDependencies,
   canAdvance,
   canFinish,
+  selectableUsers,
+  findReusableTableUser,
 } from "./setup-wizard-logic.mjs";
 
 /**
@@ -84,6 +86,7 @@ class SetupWizard extends foundry.applications.api.HandlebarsApplicationMixin(
       back: SetupWizard._onBack,
       finish: SetupWizard._onFinish,
       dismiss: SetupWizard._onDismiss,
+      "reuse-table-user": SetupWizard._onReuseTableUser,
     },
   };
 
@@ -116,7 +119,28 @@ class SetupWizard extends foundry.applications.api.HandlebarsApplicationMixin(
    * @returns {object}
    */
   _seedData() {
+    // Pre-select the currently-configured Table user (by id OR name) so
+    // re-running the wizard shows the existing choice rather than defaulting to
+    // "create". Falls back to "create" on a fresh world.
+    const current = getTableUser();
+    if (current?.id) {
+      return { tableUserMode: "select", tableUserId: current.id };
+    }
     return { tableUserMode: "create" };
+  }
+
+  /**
+   * Snapshot every user as a plain `{ id, name, isGM }` for the Foundry-free
+   * user helpers (candidate list + duplicate guard).
+   *
+   * @returns {Array<{ id: string, name: string, isGM: boolean }>}
+   */
+  _allUsers() {
+    return Array.from(game.users ?? []).map((u) => ({
+      id: u.id,
+      name: u.name,
+      isGM: u.isGM,
+    }));
   }
 
   /**
@@ -163,6 +187,21 @@ class SetupWizard extends foundry.applications.api.HandlebarsApplicationMixin(
     const mode = data.tableUserMode ?? "create";
     // Live dependency status for the dependency step + the advance/Finish gate.
     const deps = this._dependencyState();
+    // Table-user step: candidate users (non-GM) + the duplicate guard.
+    const users = this._allUsers();
+    const options = selectableUsers(users);
+    const reusable = findReusableTableUser(users);
+    // Effective dropdown selection: keep a valid captured id, else default to
+    // the first candidate. In select mode, capture it back into `this.data` so
+    // Finish commits exactly what the GM saw selected.
+    let selectedId = data.tableUserId ?? "";
+    if (mode === "select") {
+      if (!options.some((u) => u.id === selectedId)) selectedId = options[0]?.id ?? "";
+      this.data.tableUserId = selectedId;
+    }
+    // Offer to reuse an existing "Table" user — unless it is already the one the
+    // GM has selected (then the offer would be redundant noise).
+    const showReuseOffer = reusable !== null && !(mode === "select" && selectedId === reusable.id);
     return {
       step,
       stepKey: key,
@@ -179,6 +218,16 @@ class SetupWizard extends foundry.applications.api.HandlebarsApplicationMixin(
       data,
       tableUserModeCreate: mode === "create",
       tableUserModeSelect: mode === "select",
+      // Table-user step: candidate <option>s (marking the effective selection),
+      // empty-state flag, and the reuse offer when a "Table" user already exists.
+      userOptions: options.map((u) => ({
+        id: u.id,
+        name: u.name,
+        selected: u.id === selectedId,
+      })),
+      hasUserOptions: options.length > 0,
+      reusableTableUser: reusable,
+      showReuseOffer,
       // Dependency-step status: per-module rows + whether all are active.
       depsOk: deps.ok,
       dependencies: deps.modules.map((m) => ({
@@ -207,6 +256,13 @@ class SetupWizard extends foundry.applications.api.HandlebarsApplicationMixin(
         tableUserBody: t("setup-wizard.table-user.body"),
         modeCreate: t("setup-wizard.table-user.mode-create"),
         modeSelect: t("setup-wizard.table-user.mode-select"),
+        tableUserCreateHint: t("setup-wizard.table-user.create-hint"),
+        tableUserSelectLabel: t("setup-wizard.table-user.select-label"),
+        tableUserEmpty: t("setup-wizard.table-user.empty"),
+        tableUserReuse: t("setup-wizard.table-user.reuse", {
+          name: reusable?.name ?? "",
+        }),
+        tableUserReuseAction: t("setup-wizard.table-user.reuse-action"),
         settingsTitle: t("setup-wizard.settings.title"),
         settingsBody: t("setup-wizard.settings.body"),
         connectivityTitle: t("setup-wizard.connectivity.title"),
@@ -232,6 +288,33 @@ class SetupWizard extends foundry.applications.api.HandlebarsApplicationMixin(
       if (body) body.scrollTop = 0;
       this._lastRenderedStep = this.step;
     }
+    // Table-user step: toggle the create/select sub-blocks live on the mode
+    // radio WITHOUT a full re-render (which would fight the form handler).
+    this._bindTableUserReveal();
+  }
+
+  /**
+   * Table-user step: reveal exactly the create-mode or select-mode sub-block
+   * for the currently-checked `tableUserMode` radio, toggling a CSS class on a
+   * `change` listener. This mirrors the physical-mini reveal pattern: the form
+   * handler captures the radio value into `this.data`; this listener only
+   * flips visibility, so there is no re-render and no focus loss. No-op on any
+   * step that lacks the mode radios.
+   *
+   * @returns {void}
+   */
+  _bindTableUserReveal() {
+    const root = this.element;
+    const radios = root?.querySelectorAll?.('input[name="tableUserMode"]') ?? [];
+    if (!radios.length) return;
+    const apply = () => {
+      const mode = root.querySelector('input[name="tableUserMode"]:checked')?.value ?? "create";
+      for (const el of root.querySelectorAll("[data-mode-block]")) {
+        el.classList.toggle("is-hidden", el.dataset.modeBlock !== mode);
+      }
+    };
+    for (const r of radios) r.addEventListener("change", apply);
+    apply();
   }
 
   /**
@@ -280,6 +363,24 @@ class SetupWizard extends foundry.applications.api.HandlebarsApplicationMixin(
    */
   static async _onBack(_event) {
     this.step = clampStep(this.step - 1);
+    await this.render();
+  }
+
+  /**
+   * "Reuse this user" — the duplicate-guard shortcut. When a non-GM user named
+   * "Table" already exists, switch the decision to select-existing and
+   * pre-select that user (still committed only on Finish), then re-render so the
+   * dropdown reflects it. Unlike the form handler, an action handler MAY render.
+   *
+   * @this {SetupWizard}
+   * @param {Event} _event
+   * @returns {Promise<void>}
+   */
+  static async _onReuseTableUser(_event) {
+    const reusable = findReusableTableUser(this._allUsers());
+    if (!reusable) return;
+    this.data.tableUserMode = "select";
+    this.data.tableUserId = reusable.id;
     await this.render();
   }
 

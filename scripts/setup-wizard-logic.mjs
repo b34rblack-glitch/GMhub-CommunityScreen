@@ -107,3 +107,38 @@ export function canAdvance(step, state = {}) {
 export function canFinish(state = {}) {
   return state.depsOk === true;
 }
+
+/**
+ * The default name the wizard gives a freshly-created Table user (design.md
+ * §1136; also what `identity.mjs` resolves by name as a fallback).
+ *
+ * @type {string}
+ */
+export const DEFAULT_TABLE_USER_NAME = "Table";
+
+/**
+ * Pure filter: the users a GM may point the Table at — every NON-GM user. GMs
+ * are excluded because the Table user must be a player-role account.
+ *
+ * @param {Array<{ id: string, name: string, isGM: boolean }>} [users]
+ * @returns {Array<{ id: string, name: string }>} Non-GM candidates, order preserved.
+ */
+export function selectableUsers(users = []) {
+  return users.filter((u) => u && !u.isGM).map((u) => ({ id: u.id, name: u.name }));
+}
+
+/**
+ * Duplicate guard (Wave 2 M4). Foundry does NOT enforce unique `User.name`, and
+ * `identity.mjs` resolves the Table user by name as a fallback — so blindly
+ * creating a second user named "Table" would make name resolution ambiguous.
+ * Detect an existing NON-GM user with the default name so the wizard can offer
+ * to REUSE it instead of creating a duplicate.
+ *
+ * @param {Array<{ id: string, name: string, isGM: boolean }>} [users]
+ * @param {string} [name] - The name to match (defaults to "Table").
+ * @returns {{ id: string, name: string } | null} The reusable user, or null.
+ */
+export function findReusableTableUser(users = [], name = DEFAULT_TABLE_USER_NAME) {
+  const match = users.find((u) => u && !u.isGM && u.name === name);
+  return match ? { id: match.id, name: match.name } : null;
+}

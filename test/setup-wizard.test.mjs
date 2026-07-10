@@ -33,6 +33,9 @@ import {
   evaluateDependencies,
   canAdvance,
   canFinish,
+  DEFAULT_TABLE_USER_NAME,
+  selectableUsers,
+  findReusableTableUser,
 } from "../scripts/setup-wizard-logic.mjs";
 
 test("step model: canonical order + indices", () => {
@@ -98,4 +101,47 @@ test("canFinish: refused until deps ok", () => {
   assert.equal(canFinish({}), false);
   assert.equal(canFinish(), false);
   assert.equal(canFinish({ depsOk: true }), true);
+});
+
+test("selectableUsers: keeps only non-GM users, preserves order, projects id+name", () => {
+  const users = [
+    { id: "gm1", name: "Gamemaster", isGM: true },
+    { id: "p1", name: "Alice", isGM: false },
+    { id: "p2", name: "Table", isGM: false },
+  ];
+  assert.deepEqual(selectableUsers(users), [
+    { id: "p1", name: "Alice" },
+    { id: "p2", name: "Table" },
+  ]);
+  // Defensive: no arg, empty, and null entries never throw.
+  assert.deepEqual(selectableUsers(), []);
+  assert.deepEqual(selectableUsers([]), []);
+  assert.deepEqual(selectableUsers([null, { id: "p3", name: "Bob", isGM: false }]), [
+    { id: "p3", name: "Bob" },
+  ]);
+});
+
+test("findReusableTableUser: finds a non-GM 'Table', ignores GM/other names", () => {
+  assert.equal(DEFAULT_TABLE_USER_NAME, "Table");
+  // A non-GM user named "Table" is reusable.
+  assert.deepEqual(
+    findReusableTableUser([
+      { id: "gm1", name: "Gamemaster", isGM: true },
+      { id: "p2", name: "Table", isGM: false },
+    ]),
+    { id: "p2", name: "Table" },
+  );
+  // A GM named "Table" must NOT be offered (Table user must be player-role).
+  assert.equal(
+    findReusableTableUser([{ id: "gm1", name: "Table", isGM: true }]),
+    null,
+  );
+  // No "Table" at all → null; no arg → null.
+  assert.equal(findReusableTableUser([{ id: "p1", name: "Alice", isGM: false }]), null);
+  assert.equal(findReusableTableUser(), null);
+  // Custom name match.
+  assert.deepEqual(
+    findReusableTableUser([{ id: "p9", name: "TV", isGM: false }], "TV"),
+    { id: "p9", name: "TV" },
+  );
 });

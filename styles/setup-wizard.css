@@ -70,6 +70,65 @@
   flex: 0 0 auto;
 }
 
+/* Conditionally-revealed sub-blocks (create/select modes, physical-mini). The
+   .is-hidden toggle is flipped live by an _onRender change listener so the
+   reveal needs no full re-render. */
+.community-screen-setup-wizard-mode-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.community-screen-setup-wizard.community-screen-setup-wizard .is-hidden {
+  display: none;
+}
+
+/* Small caption under a control (e.g. the create-mode explanation). */
+.community-screen-setup-wizard-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  opacity: 0.75;
+}
+
+/* Label above a field control (select / number input). */
+.community-screen-setup-wizard-field-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.community-screen-setup-wizard-field select,
+.community-screen-setup-wizard-field input[type="number"] {
+  width: 100%;
+}
+
+/* Reuse-existing-user offer (duplicate guard). */
+.community-screen-setup-wizard-reuse {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 4px;
+  background: rgba(240, 200, 105, 0.12);
+  border: 1px solid rgba(240, 200, 105, 0.4);
+}
+
+.community-screen-setup-wizard-reuse p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.community-screen-setup-wizard-reuse button {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
 /* Pinned footer with Back / Next|Finish and the dismiss link. */
 .community-screen-setup-wizard-footer {
   flex: 0 0 auto;

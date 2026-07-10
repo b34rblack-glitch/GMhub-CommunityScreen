@@ -44,6 +44,17 @@
   <section class="community-screen-setup-wizard-step">
     <h2 class="community-screen-setup-wizard-step-title">{{labels.tableUserTitle}}</h2>
     <p class="community-screen-setup-wizard-lede">{{labels.tableUserBody}}</p>
+
+    {{#if showReuseOffer}}
+    <div class="community-screen-setup-wizard-reuse">
+      <p>{{labels.tableUserReuse}}</p>
+      <button type="button" data-action="reuse-table-user">
+        <i class="fa-solid fa-rotate-left"></i>
+        <span>{{labels.tableUserReuseAction}}</span>
+      </button>
+    </div>
+    {{/if}}
+
     <div class="community-screen-setup-wizard-field">
       <label class="community-screen-setup-wizard-choice">
         <input type="radio" name="tableUserMode" value="create" {{#if tableUserModeCreate}}checked{{/if}} />
@@ -53,6 +64,27 @@
         <input type="radio" name="tableUserMode" value="select" {{#if tableUserModeSelect}}checked{{/if}} />
         <span>{{labels.modeSelect}}</span>
       </label>
+    </div>
+
+    {{!-- Both sub-blocks are always in the DOM; _bindTableUserReveal toggles
+          .is-hidden on the mode radio so the switch needs no re-render. --}}
+    <div class="community-screen-setup-wizard-mode-block {{#unless tableUserModeCreate}}is-hidden{{/unless}}" data-mode-block="create">
+      <p class="community-screen-setup-wizard-hint">{{labels.tableUserCreateHint}}</p>
+    </div>
+
+    <div class="community-screen-setup-wizard-mode-block {{#unless tableUserModeSelect}}is-hidden{{/unless}}" data-mode-block="select">
+      {{#if hasUserOptions}}
+      <div class="community-screen-setup-wizard-field">
+        <label class="community-screen-setup-wizard-field-label" for="community-screen-setup-wizard-user-select">{{labels.tableUserSelectLabel}}</label>
+        <select id="community-screen-setup-wizard-user-select" name="tableUserId">
+          {{#each userOptions}}
+          <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+          {{/each}}
+        </select>
+      </div>
+      {{else}}
+      <p class="community-screen-setup-wizard-warn">{{labels.tableUserEmpty}}</p>
+      {{/if}}
     </div>
   </section>
   {{/if}}
