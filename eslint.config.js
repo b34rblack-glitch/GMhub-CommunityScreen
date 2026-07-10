@@ -52,6 +52,25 @@ export default [
     },
   },
   {
+    // Unit tests run under plain Node via `node --test` — Node globals, not
+    // Foundry's browser runtime. console is fine in test output.
+    files: ["test/**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: "module",
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "prefer-const": "warn",
+      eqeqeq: ["error", "smart"],
+      "no-var": "error",
+      "no-console": "off",
+    },
+  },
+  {
     ignores: ["node_modules/**", "dist/**", "*.min.js"],
   },
 ];

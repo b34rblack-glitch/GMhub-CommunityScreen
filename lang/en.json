@@ -15,11 +15,30 @@
         "cover": "Cover (crop)",
         "width": "Fit width",
         "height": "Fit height",
-        "native": "Native (1:1)"
+        "native": "Native (1:1)",
+        "physical": "Physical mini (fixed grid size)"
       },
       "custom-scale": {
-        "name": "Custom Scale Override",
-        "hint": "Force this zoom level instead of computing one. 1.0 = native. Set 0 to disable."
+        "name": "Physical grid-square size",
+        "hint": "For the 'Physical mini' fit mode: the real-world size one grid square should render at on the Table display, in the unit chosen below. E.g. 1 inch for standard 25mm minis. Requires the display diagonal set too."
+      },
+      "physical-target-unit": {
+        "name": "Physical size unit",
+        "hint": "Unit for the physical grid-square size above.",
+        "inch": "Inches",
+        "cm": "Centimeters"
+      },
+      "display-diagonal-in": {
+        "name": "Table display diagonal (inches)",
+        "hint": "The physical diagonal of the Table TV in inches (e.g. 55 for a 55\" TV). Used with the native resolution to compute pixels-per-inch for the 'Physical mini' fit mode."
+      },
+      "display-res-width": {
+        "name": "Table display width (pixels)",
+        "hint": "The Table display's native horizontal resolution in pixels. Leave 0 to auto-detect on the Table client itself (recommended — a value entered on the GM laptop would describe the wrong screen)."
+      },
+      "display-res-height": {
+        "name": "Table display height (pixels)",
+        "hint": "The Table display's native vertical resolution in pixels. Leave 0 to auto-detect on the Table client itself (recommended — a value entered on the GM laptop would describe the wrong screen)."
       },
       "highlight-enabled": {
         "name": "Show Active-Turn Highlight",
@@ -36,6 +55,10 @@
       "highlight-use-disposition": {
         "name": "Color Highlight by Disposition",
         "hint": "Friendly/neutral/hostile use different ring colors. Disable for a single neutral color."
+      },
+      "combat-hud-enabled": {
+        "name": "Show Combat HUD",
+        "hint": "Show a text-only overlay on this client with the current and next combatant and the round number during combat. Hidden combatants are shown as '?' — to keep an NPC off the display, mark the combatant or its token hidden."
       },
       "table-mode": {
         "name": "Table Mode",
@@ -54,6 +77,10 @@
       "popup-backdrop": {
         "name": "Dim Canvas Behind Pop-ups",
         "hint": "Darken the rest of the canvas when a journal/item/portrait pop-up is open on the Table."
+      },
+      "spotlight-enabled": {
+        "name": "Enable Spotlight Token Control",
+        "hint": "Show a GM-only 'Spotlight token' control in the Community Screen palette to force the Table onto a chosen token's vision until cleared. Auto-clears when combat starts or ends."
       }
     },
     "keybindings": {
@@ -70,7 +97,14 @@
       "push-to-table": "Push to Table",
       "close-all": "Close All Pop-ups",
       "refit-scene": "Refit Scene",
-      "toggle-table-mode": "Toggle Table Mode"
+      "toggle-table-mode": "Toggle Table Mode",
+      "spotlight": "Spotlight Token",
+      "clear-spotlight": "Clear Spotlight"
+    },
+    "spotlight": {
+      "dialog-title": "Spotlight a token on the Table",
+      "dialog-label": "Token",
+      "confirm": "Spotlight"
     },
     "context": {
       "push-to-table": "Push to Table"
@@ -80,6 +114,11 @@
       "fit-mode-label": "Fit mode for the Table",
       "fit-mode-default": "Use world default"
     },
+    "combat-hud": {
+      "round": "R{round}",
+      "current": "Now",
+      "next": "Next"
+    },
     "control-palette": {
       "title": "Community Screen",
       "table-online": "Table user is online",
@@ -88,14 +127,20 @@
     },
     "notifications": {
       "pushed": "Pushed to Table.",
-      "closed-all": "Closed all Table pop-ups."
+      "closed-all": "Closed all Table pop-ups.",
+      "physical-fit-failed": "Physical fit failed — check the display diagonal, resolution, and grid-square size settings.",
+      "physical-fit-clamped": "Physical fit scale is below Foundry's minimum zoom and may be clamped; minis could render slightly large.",
+      "spotlight-set": "Spotlighting token on the Table.",
+      "spotlight-cleared": "Spotlight cleared; Table vision restored."
     },
     "errors": {
       "table-offline": "Table client is not connected.",
       "no-table-user": "No Table user is configured.",
       "unknown-table-user": "Table user '{value}' was not found. Check the Table User setting — accepts a user name or id.",
       "no-observer-actors": "The configured Table user has no actors with OBSERVER or OWNER permission. Vision will not work until permissions are granted.",
-      "push-failed": "Could not push to Table: {message}"
+      "push-failed": "Could not push to Table: {message}",
+      "spotlight-failed": "Could not spotlight the token on the Table.",
+      "no-tokens": "No tokens on the current scene to spotlight."
     },
     "warnings": {
       "no-table-user-online": "Configured Table user is not currently logged in."

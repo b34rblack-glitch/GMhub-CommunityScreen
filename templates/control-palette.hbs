@@ -17,5 +17,15 @@
       <i class="fa-solid fa-toggle-on"></i>
       <span>{{labels.toggleTableMode}}</span>
     </button>
+    {{#if spotlightEnabled}}
+    <button type="button" data-action="spotlight" {{#unless hasTableUser}}disabled{{/unless}}>
+      <i class="fa-solid fa-bullseye"></i>
+      <span>{{labels.spotlight}}</span>
+    </button>
+    <button type="button" data-action="clear-spotlight" {{#unless hasTableUser}}disabled{{/unless}}>
+      <i class="fa-solid fa-circle-xmark"></i>
+      <span>{{labels.clearSpotlight}}</span>
+    </button>
+    {{/if}}
   </div>
 </div>

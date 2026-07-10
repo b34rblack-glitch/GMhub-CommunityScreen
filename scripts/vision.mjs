@@ -26,11 +26,94 @@
 import { isGM, isTableUser, getTableUserId, isTableOnline } from "./identity.mjs";
 import { executeAsUser, setHandler } from "./sockets.mjs";
 import { ensureTableObserver } from "./ownership.mjs";
-import { sleep } from "./lib/helpers.mjs";
+import { sleep, t } from "./lib/helpers.mjs";
 import { logger } from "./lib/logger.mjs";
 
 /** Time to wait between granting OBSERVER and broadcasting focus. */
 const OWNERSHIP_PROPAGATION_DELAY_MS = 200;
+
+/**
+ * GM-side, in-memory spotlight override. When set to a token id, the Table is
+ * forced onto that token's vision until cleared — overriding the automatic
+ * combat-follow / party-union rules. NOT persisted: a GM reload drops it.
+ *
+ * While this is non-null, `broadcastFocus()` early-returns so a stray
+ * `updateCombat` can't stomp the spotlight before it's explicitly or auto-
+ * cleared. Auto-clear on combat start/end nulls this INLINE (not via
+ * `clearSpotlight()`) so the existing combat broadcast runs exactly once.
+ *
+ * @type {string | null}
+ */
+let spotlightTokenId = null;
+
+/**
+ * @returns {string | null} The active spotlight token id, or null. Exported
+ *   for observability (tests / manual checks that a stray hook didn't stomp it).
+ */
+export function getSpotlightTokenId() {
+  return spotlightTokenId;
+}
+
+/**
+ * GM action: force the Table onto a specific token's vision, overriding the
+ * automatic rules until cleared. Reuses the existing `setVisionFocus` socket
+ * path (grants OBSERVER first, like the combat broadcast). No new handler.
+ *
+ * @param {string} tokenId - The token to spotlight on the Table.
+ * @returns {Promise<void>}
+ */
+export async function setSpotlight(tokenId) {
+  if (!isGM()) return;
+  if (!tokenId) return;
+  // Surface the same preconditions the combat path checks.
+  if (!isTableOnline()) {
+    ui.notifications?.warn(t("errors.table-offline"));
+    return;
+  }
+  const tableId = getTableUserId();
+  if (!tableId) {
+    ui.notifications?.warn(t("errors.no-table-user"));
+    return;
+  }
+  // Set the flag BEFORE broadcasting so a racing updateCombat early-returns.
+  spotlightTokenId = tokenId;
+  try {
+    // Make sure the Table user can control the token (OBSERVER on the actor),
+    // then let the update settle before the socket-driven Token.control().
+    const actor = canvas?.tokens?.get(tokenId)?.actor;
+    if (actor) {
+      await ensureTableObserver(actor);
+      await sleep(OWNERSHIP_PROPAGATION_DELAY_MS);
+    }
+    await executeAsUser("setVisionFocus", tableId, { tokenId });
+  } catch (err) {
+    logger.warn("setSpotlight failed:", err);
+    ui.notifications?.warn(t("errors.spotlight-failed"));
+  }
+}
+
+/**
+ * GM action: clear the spotlight and restore normal vision. Nulls the flag
+ * BEFORE the restore broadcast — otherwise `broadcastFocus()`'s early-return
+ * (which fires while a spotlight is set) would suppress the restore and leave
+ * the Table stuck on the spotlight token.
+ *
+ * @returns {Promise<void>}
+ */
+export async function clearSpotlight() {
+  if (!isGM()) return;
+  // Null FIRST so the restore below actually broadcasts.
+  spotlightTokenId = null;
+  try {
+    const active = game.combats?.active;
+    // In combat → follow the tracker again; out of combat → union vision.
+    if (active?.started) await broadcastFocus(active);
+    else await releaseTable();
+  } catch (err) {
+    logger.warn("clearSpotlight failed:", err);
+    ui.notifications?.warn(t("errors.spotlight-failed"));
+  }
+}
 
 /**
  * Resolve the token id of the currently-active combatant in a Combat
@@ -110,6 +193,9 @@ function _setVisionFocus({ tokenId } = {}) {
  */
 async function broadcastFocus(combat) {
   if (!isGM()) return;
+  // A manual spotlight override is active — don't let a combat hook stomp it.
+  // clearSpotlight()/the combat auto-clear null the flag BEFORE calling here.
+  if (spotlightTokenId) return;
   // No-op if there's no Table client online to receive it.
   if (!isTableOnline()) return;
   const tableId = getTableUserId();
@@ -188,13 +274,37 @@ export function init() {
     if (!isGM()) return;
 
     // Every combat lifecycle event that changes the active combatant.
-    Hooks.on("combatStart", (combat) => broadcastFocus(combat));
+    // combatStart/End/deleteCombat auto-clear any spotlight override by
+    // nulling the flag INLINE (before the broadcast) so the existing combat
+    // broadcast runs exactly once — NOT via clearSpotlight(), which would
+    // itself broadcast and double up. combatTurn/combatRound/updateCombat do
+    // NOT clear it (broadcastFocus early-returns while a spotlight is set).
+    Hooks.on("combatStart", (combat) => {
+      spotlightTokenId = null;
+      broadcastFocus(combat);
+    });
     Hooks.on("combatTurn", (combat) => broadcastFocus(combat));
     Hooks.on("combatRound", (combat) => broadcastFocus(combat));
     Hooks.on("updateCombat", (combat) => broadcastFocus(combat));
-    // End-of-combat → release Table back to union vision.
-    Hooks.on("combatEnd", () => releaseTable());
-    Hooks.on("deleteCombat", () => releaseTable());
+    // End-of-combat → clear any spotlight and release Table to union vision.
+    Hooks.on("combatEnd", () => {
+      spotlightTokenId = null;
+      releaseTable();
+    });
+    Hooks.on("deleteCombat", () => {
+      spotlightTokenId = null;
+      releaseTable();
+    });
+
+    // If the spotlighted token itself is deleted, clear and restore vision.
+    Hooks.on("deleteToken", (doc) => {
+      if (!isGM()) return;
+      if (spotlightTokenId && doc?.id === spotlightTokenId) {
+        // clearSpotlight() nulls the flag before restoring, so the restore
+        // broadcast isn't suppressed by the early-return.
+        clearSpotlight();
+      }
+    });
 
     // Initial state once everything is up.
     broadcastFocus();
