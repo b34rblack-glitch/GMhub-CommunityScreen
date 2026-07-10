@@ -77,6 +77,10 @@
       "popup-backdrop": {
         "name": "Dim Canvas Behind Pop-ups",
         "hint": "Darken the rest of the canvas when a journal/item/portrait pop-up is open on the Table."
+      },
+      "spotlight-enabled": {
+        "name": "Enable Spotlight Token Control",
+        "hint": "Show a GM-only 'Spotlight token' control in the Community Screen palette to force the Table onto a chosen token's vision until cleared. Auto-clears when combat starts or ends."
       }
     },
     "keybindings": {
@@ -93,7 +97,14 @@
       "push-to-table": "Push to Table",
       "close-all": "Close All Pop-ups",
       "refit-scene": "Refit Scene",
-      "toggle-table-mode": "Toggle Table Mode"
+      "toggle-table-mode": "Toggle Table Mode",
+      "spotlight": "Spotlight Token",
+      "clear-spotlight": "Clear Spotlight"
+    },
+    "spotlight": {
+      "dialog-title": "Spotlight a token on the Table",
+      "dialog-label": "Token",
+      "confirm": "Spotlight"
     },
     "context": {
       "push-to-table": "Push to Table"
@@ -118,14 +129,18 @@
       "pushed": "Pushed to Table.",
       "closed-all": "Closed all Table pop-ups.",
       "physical-fit-failed": "Physical fit failed — check the display diagonal, resolution, and grid-square size settings.",
-      "physical-fit-clamped": "Physical fit scale is below Foundry's minimum zoom and may be clamped; minis could render slightly large."
+      "physical-fit-clamped": "Physical fit scale is below Foundry's minimum zoom and may be clamped; minis could render slightly large.",
+      "spotlight-set": "Spotlighting token on the Table.",
+      "spotlight-cleared": "Spotlight cleared; Table vision restored."
     },
     "errors": {
       "table-offline": "Table client is not connected.",
       "no-table-user": "No Table user is configured.",
       "unknown-table-user": "Table user '{value}' was not found. Check the Table User setting — accepts a user name or id.",
       "no-observer-actors": "The configured Table user has no actors with OBSERVER or OWNER permission. Vision will not work until permissions are granted.",
-      "push-failed": "Could not push to Table: {message}"
+      "push-failed": "Could not push to Table: {message}",
+      "spotlight-failed": "Could not spotlight the token on the Table.",
+      "no-tokens": "No tokens on the current scene to spotlight."
     },
     "warnings": {
       "no-table-user-online": "Configured Table user is not currently logged in."

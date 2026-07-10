@@ -234,6 +234,19 @@ export function init() {
     default: true,
   });
 
+  // ---- spotlight-enabled --------------------------------------------------
+  // World-scoped: gates the GM-only "Spotlight token" / "Clear spotlight"
+  // controls in the control palette. Default off so tables that never want to
+  // override the automatic vision rules see no extra buttons.
+  game.settings.register(MODULE_ID, "spotlight-enabled", {
+    name: "COMMUNITY_SCREEN.settings.spotlight-enabled.name",
+    hint: "COMMUNITY_SCREEN.settings.spotlight-enabled.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+  });
+
   // ---- popup-backdrop ----------------------------------------------------
   // Toggle the 60%-dark canvas overlay when popups are open on the Table.
   game.settings.register(MODULE_ID, "popup-backdrop", {

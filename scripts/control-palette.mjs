@@ -19,9 +19,25 @@
 import { MODULE_ID } from "./module.mjs";
 import { isGM, getTableUserId, isTableOnline } from "./identity.mjs";
 import { executeAsUser } from "./sockets.mjs";
+import { get as getSetting } from "./settings.mjs";
 import { fitSceneToTable } from "./scene-fit.mjs";
+import { setSpotlight, clearSpotlight } from "./vision.mjs";
 import { t } from "./lib/helpers.mjs";
 import { logger } from "./lib/logger.mjs";
+
+/**
+ * Escape a string for safe interpolation into the DialogV2 token-picker HTML.
+ * Token names are user-authored and could contain markup.
+ *
+ * @param {string} s
+ * @returns {string}
+ */
+function escapeHtml(s) {
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+  );
+}
 
 /**
  * The singleton control palette instance. Kept around so re-opening just
@@ -55,6 +71,8 @@ class ControlPalette extends foundry.applications.api.HandlebarsApplicationMixin
       "close-all": ControlPalette._onCloseAll,
       "refit-scene": ControlPalette._onRefit,
       "toggle-table-mode": ControlPalette._onToggle,
+      spotlight: ControlPalette._onSpotlight,
+      "clear-spotlight": ControlPalette._onClearSpotlight,
     },
   };
 
@@ -81,11 +99,15 @@ class ControlPalette extends foundry.applications.api.HandlebarsApplicationMixin
         : online
           ? t("control-palette.table-online")
           : t("control-palette.table-offline"),
+      // Whether to show the (opt-in, GM-only) spotlight controls at all.
+      spotlightEnabled: getSetting("spotlight-enabled", false),
       // Pre-localize button labels so the template doesn't need i18n helpers.
       labels: {
         closeAll: t("buttons.close-all"),
         refitScene: t("buttons.refit-scene"),
         toggleTableMode: t("buttons.toggle-table-mode"),
+        spotlight: t("buttons.spotlight"),
+        clearSpotlight: t("buttons.clear-spotlight"),
       },
     };
   }
@@ -144,6 +166,62 @@ class ControlPalette extends foundry.applications.api.HandlebarsApplicationMixin
       await executeAsUser("toggleTableMode", tableId);
     } catch (err) {
       logger.debug("toggleTableMode dispatch failed:", err);
+    }
+  }
+
+  /**
+   * Action handler for "Spotlight token". Opens a DialogV2 picker of the
+   * current scene's tokens; the chosen token is forced onto the Table's
+   * vision via vision.setSpotlight(). Cancelling the dialog is a no-op.
+   *
+   * @param {Event} _event
+   * @returns {Promise<void>}
+   */
+  static async _onSpotlight(_event) {
+    // Pick from the tokens actually placed on the current scene.
+    const tokens = canvas?.tokens?.placeables ?? [];
+    if (!tokens.length) {
+      ui.notifications?.warn(t("errors.no-tokens"));
+      return;
+    }
+    // Build an escaped <option> per token (names are user-authored markup).
+    const options = tokens
+      .map((tk) => `<option value="${escapeHtml(tk.id)}">${escapeHtml(tk.name ?? tk.id)}</option>`)
+      .join("");
+    try {
+      // rejectClose:false → resolves to null when the GM dismisses the dialog.
+      const tokenId = await foundry.applications.api.DialogV2.prompt({
+        window: { title: t("spotlight.dialog-title") },
+        content: `<div class="form-group"><label>${t("spotlight.dialog-label")}</label><select name="tokenId">${options}</select></div>`,
+        rejectClose: false,
+        ok: {
+          label: t("spotlight.confirm"),
+          // Read the selected token id off the submitted form.
+          callback: (_ev, button) => button.form.elements.tokenId.value,
+        },
+      });
+      // Dismissed → no-op.
+      if (!tokenId) return;
+      await setSpotlight(tokenId);
+      ui.notifications?.info(t("notifications.spotlight-set"));
+    } catch (err) {
+      logger.debug("spotlight dialog failed:", err);
+    }
+  }
+
+  /**
+   * Action handler for "Clear spotlight". Restores the Table to the automatic
+   * vision rules (union out of combat, tracker-follow in combat).
+   *
+   * @param {Event} _event
+   * @returns {Promise<void>}
+   */
+  static async _onClearSpotlight(_event) {
+    try {
+      await clearSpotlight();
+      ui.notifications?.info(t("notifications.spotlight-cleared"));
+    } catch (err) {
+      logger.debug("clear spotlight failed:", err);
     }
   }
 }
