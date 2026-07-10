@@ -132,9 +132,34 @@
     },
     "setup-wizard": {
       "title": "Community Screen setup",
+      "progress": "Step {number} of {total}",
+      "nav": {
+        "back": "Back",
+        "next": "Next",
+        "finish": "Finish",
+        "dismiss": "Don't show again"
+      },
       "welcome": {
         "title": "Welcome to Community Screen",
         "body": "This wizard sets up the shared Table display: it creates or picks the dedicated Table user, points the module at it, walks you through the recommended defaults, and confirms everything is connected before you finish. You can reopen it any time from the 'Run setup' button in the Community Screen palette."
+      },
+      "dependencies": {
+        "title": "Required modules",
+        "body": "Community Screen needs the socketlib and lib-wrapper modules active to talk to the Table client and manage the canvas."
+      },
+      "table-user": {
+        "title": "Table user",
+        "body": "Pick the dedicated player-role user that drives the shared TV. You can create a new one now or point the module at a user you already have.",
+        "mode-create": "Create a new \"Table\" player user",
+        "mode-select": "Use an existing user"
+      },
+      "settings": {
+        "title": "Recommended defaults",
+        "body": "Review the module's defaults. Everything here has a sensible starting value; adjust anything you like now or later in the module settings."
+      },
+      "connectivity": {
+        "title": "Connect the Table",
+        "body": "Finally, confirm the Table client is reachable. You can finish setup whether or not it's online right now."
       }
     },
     "notifications": {

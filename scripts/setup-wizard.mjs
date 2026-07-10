@@ -10,22 +10,26 @@
 // scripts/control-palette.mjs. It is a module-level singleton so re-opening
 // re-renders the same instance rather than allocating a new window.
 //
-// The wizard is a LINEAR multi-step flow driven by an internal `this.step`
-// index over a single Handlebars PART (NOT native AppV2 TABS — later steps gate
-// on earlier answers). Pure, Foundry-free logic (step model, dependency
-// reducer, gate predicates, settings-bucket classifier) lives in
+// LINEAR multi-step flow driven by an internal `this.step` index over a single
+// Handlebars PART (NOT native AppV2 TABS — later steps gate on earlier
+// answers). Pure, Foundry-free logic (step model, dependency reducer, gate
+// predicates, settings-bucket classifier) lives in
 // scripts/setup-wizard-logic.mjs so it can be unit-tested under `node --test`.
 //
-// This scaffold establishes the singleton, the open()/init() surface, and the
-// `api.openWizard()` console hook; the step framework, dependency gate,
-// Table-user capture, settings walk-through, connectivity report, and Finish
-// commit are layered on in the following steps.
+// Form-state persistence: `tag: "form"` + `submitOnChange`. The change handler
+// MERGES the edited fields into `this.data`; `_prepareContext` re-emits
+// `this.data` so re-rendered inputs stay pre-filled across Next/Back. The
+// handler NEVER calls `this.render()` (that would steal focus mid-edit), and
+// navigation buttons are `type="button"` + `data-action` so they don't submit
+// the form.
 // ============================================================================
 
 import { MODULE_ID } from "./module.mjs";
 import { isGM } from "./identity.mjs";
+import { set as setSetting } from "./settings.mjs";
 import { t } from "./lib/helpers.mjs";
 import { logger } from "./lib/logger.mjs";
+import { STEPS, LAST_STEP, clampStep } from "./setup-wizard-logic.mjs";
 
 /**
  * The singleton wizard instance. Kept around so re-opening just re-renders
@@ -65,9 +69,14 @@ class SetupWizard extends foundry.applications.api.HandlebarsApplicationMixin(
       submitOnChange: true,
       closeOnSubmit: false,
     },
-    // `actions` maps data-action attributes to handler methods. Navigation
-    // (next/back/finish/dismiss) is wired in the step-framework step.
-    actions: {},
+    // `actions` maps data-action attributes to handler methods. All navigation
+    // buttons are `type="button"` in the template so they never submit.
+    actions: {
+      next: SetupWizard._onNext,
+      back: SetupWizard._onBack,
+      finish: SetupWizard._onFinish,
+      dismiss: SetupWizard._onDismiss,
+    },
   };
 
   // AppV2 PARTS: a single Handlebars part; the linear step flow is driven by
@@ -77,43 +86,209 @@ class SetupWizard extends foundry.applications.api.HandlebarsApplicationMixin(
   };
 
   /**
-   * AppV2's data prep hook — returns the context passed to the template.
-   * The full per-step context is built in the step-framework step; this
-   * scaffold renders a localized welcome placeholder.
+   * Reset to the first step with freshly-seeded state. Called on every open()
+   * so "Run setup" always starts at the beginning rather than wherever the
+   * previous (un-destroyed singleton) session left off.
+   *
+   * @returns {void}
+   */
+  reset() {
+    /** @type {number} Current step index into STEPS. */
+    this.step = 0;
+    /** @type {object} Cross-step captured form state (merged by the change handler). */
+    this.data = this._seedData();
+    /** @type {number | null} Last-rendered step, for scroll-reset on navigation. */
+    this._lastRenderedStep = null;
+  }
+
+  /**
+   * Build the initial `this.data`. Seeds only framework defaults here; later
+   * steps pre-fill it from the current settings and the resolved Table user.
+   *
+   * @returns {object}
+   */
+  _seedData() {
+    return { tableUserMode: "create" };
+  }
+
+  /**
+   * AppV2 first-render hook. `open()` calls `reset()` before rendering, so
+   * this is a defensive fallback for a bare `render()` with no prior reset.
+   *
+   * @override
+   * @param {object} context
+   * @param {object} options
+   * @returns {void}
+   */
+  _onFirstRender(context, options) {
+    super._onFirstRender?.(context, options);
+    if (this.step === undefined) this.reset();
+  }
+
+  /**
+   * AppV2's data prep hook — returns the context passed to the template, with
+   * all copy pre-localized and per-step flags computed so the template needs
+   * no i18n or comparison helpers.
    *
    * @override
    * @returns {Promise<object>}
    */
   async _prepareContext() {
+    const step = clampStep(this.step ?? 0);
+    const key = STEPS[step];
+    const data = this.data ?? {};
+    const mode = data.tableUserMode ?? "create";
     return {
+      step,
+      stepKey: key,
+      isFirst: step === 0,
+      isLast: step === LAST_STEP,
+      canBack: step > 0,
+      // Per-step render flags — exactly one is true.
+      isWelcome: key === "welcome",
+      isDependencies: key === "dependencies",
+      isTableUser: key === "table-user",
+      isSettings: key === "settings",
+      isConnectivity: key === "connectivity",
+      // Re-emitted captured state so inputs stay pre-filled across Next/Back.
+      data,
+      tableUserModeCreate: mode === "create",
+      tableUserModeSelect: mode === "select",
+      // All copy pre-localized.
       labels: {
-        title: t("setup-wizard.title"),
+        progress: t("setup-wizard.progress", {
+          number: String(step + 1),
+          total: String(STEPS.length),
+        }),
+        back: t("setup-wizard.nav.back"),
+        next: t("setup-wizard.nav.next"),
+        finish: t("setup-wizard.nav.finish"),
+        dismiss: t("setup-wizard.nav.dismiss"),
         welcomeTitle: t("setup-wizard.welcome.title"),
         welcomeBody: t("setup-wizard.welcome.body"),
+        dependenciesTitle: t("setup-wizard.dependencies.title"),
+        dependenciesBody: t("setup-wizard.dependencies.body"),
+        tableUserTitle: t("setup-wizard.table-user.title"),
+        tableUserBody: t("setup-wizard.table-user.body"),
+        modeCreate: t("setup-wizard.table-user.mode-create"),
+        modeSelect: t("setup-wizard.table-user.mode-select"),
+        settingsTitle: t("setup-wizard.settings.title"),
+        settingsBody: t("setup-wizard.settings.body"),
+        connectivityTitle: t("setup-wizard.connectivity.title"),
+        connectivityBody: t("setup-wizard.connectivity.body"),
       },
     };
   }
 
   /**
-   * AppV2 form-change handler. Wired now (so `submitOnChange` has a target)
-   * but a no-op until the step framework adds cross-step form persistence.
-   * MUST NOT call `this.render()` — that would steal focus mid-edit.
+   * AppV2 render hook. Resets the scrollable body to the top whenever a NEW
+   * step has just rendered (so a long step doesn't leave the next one scrolled
+   * mid-way). Later steps add their conditional-reveal listeners here.
+   *
+   * @override
+   * @param {object} context
+   * @param {object} options
+   * @returns {Promise<void>}
+   */
+  async _onRender(context, options) {
+    await super._onRender(context, options);
+    if (this._lastRenderedStep !== this.step) {
+      const body = this.element?.querySelector?.(".community-screen-setup-wizard-body");
+      if (body) body.scrollTop = 0;
+      this._lastRenderedStep = this.step;
+    }
+  }
+
+  /**
+   * AppV2 form-change handler. MERGES the edited fields into `this.data` so
+   * they survive the full re-render that Next/Back triggers. MUST NOT call
+   * `this.render()` — `submitOnChange` deliberately does not re-render, which
+   * is what preserves focus/cursor while the GM edits a field.
    *
    * @this {SetupWizard}
    * @param {Event} _event - The submit/change event.
    * @param {HTMLFormElement} _form - The wizard's form element.
-   * @param {object} _formData - AppV2's parsed form data wrapper.
+   * @param {object} formData - AppV2's parsed form data (`.object` is expanded).
    * @returns {void}
    */
-  static _onFormChange(_event, _form, _formData) {
-    // Cross-step form-state persistence is implemented in the step framework.
+  static _onFormChange(_event, _form, formData) {
+    Object.assign(this.data, formData.object);
+  }
+
+  /**
+   * "Next" — advance one step. The dependency gate is layered on in the
+   * dependency-verification step so the wizard can't step past an unmet
+   * requirement.
+   *
+   * @this {SetupWizard}
+   * @param {Event} _event
+   * @returns {Promise<void>}
+   */
+  static async _onNext(_event) {
+    this.step = clampStep(this.step + 1);
+    await this.render();
+  }
+
+  /**
+   * "Back" — retreat one step.
+   *
+   * @this {SetupWizard}
+   * @param {Event} _event
+   * @returns {Promise<void>}
+   */
+  static async _onBack(_event) {
+    this.step = clampStep(this.step - 1);
+    await this.render();
+  }
+
+  /**
+   * "Finish" — commit the captured decisions and close. The ordered commit
+   * (Table user → settings → ownership sync → setup-complete flag) is
+   * implemented in the connectivity/Finish step; here it just closes.
+   *
+   * @this {SetupWizard}
+   * @param {Event} _event
+   * @returns {Promise<void>}
+   */
+  static async _onFinish(_event) {
+    await this._commitAndClose();
+  }
+
+  /**
+   * "Don't show again" — explicitly suppress the one-time auto-open without
+   * completing setup, then close. Sets the hidden `setup-complete` flag so the
+   * wizard won't auto-open next load; the palette "Run setup" button still
+   * reopens it regardless.
+   *
+   * @this {SetupWizard}
+   * @param {Event} _event
+   * @returns {Promise<void>}
+   */
+  static async _onDismiss(_event) {
+    try {
+      await setSetting("setup-complete", true);
+    } catch (err) {
+      logger.warn("Failed to persist setup-complete on dismiss:", err);
+    }
+    await this.close();
+  }
+
+  /**
+   * Perform the Finish commit and close. Placeholder that just closes until the
+   * connectivity/Finish step fills in the ordered commit.
+   *
+   * @returns {Promise<void>}
+   */
+  async _commitAndClose() {
+    await this.close();
   }
 }
 
 /**
- * Open (or re-render) the wizard. GM-only; a no-op on a non-GM/Table client.
- * Ignores the `setup-complete` flag — the palette "Run setup" button always
- * reopens (the one-time auto-open gating lives in the ready hook, added later).
+ * Open (or re-render) the wizard, starting fresh at the first step. GM-only; a
+ * no-op on a non-GM/Table client. Ignores the `setup-complete` flag — the
+ * palette "Run setup" button always reopens (the one-time auto-open gating
+ * lives in the ready hook, added in the Finish step).
  *
  * @returns {void}
  */
@@ -122,6 +297,8 @@ export function open() {
   if (!isGM()) return;
   // Lazy-instantiate the singleton on first open.
   if (!wizard) wizard = new SetupWizard();
+  // Always start at the beginning with freshly-seeded state.
+  wizard.reset();
   wizard.render(true);
 }
 

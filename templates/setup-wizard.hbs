@@ -1,15 +1,83 @@
 {{!--
   templates/setup-wizard.hbs
-  First-run setup wizard body. Rendered inside the AppV2 form element.
+  First-run setup wizard body + footer. Rendered inside the AppV2 <form>.
   All copy is passed pre-localized via _prepareContext (labels.*) — this
   template carries no literal user-visible strings.
 
-  Scaffold: a localized welcome panel. The linear step flow (step header,
-  per-step content, Back/Next/Finish footer) is layered on in later steps.
+  Linear flow: exactly one is* flag is true per render, selecting the step
+  body. Navigation buttons are type="button" + data-action so they never
+  submit the form (which would fire the merge handler but not navigate).
+
+  Later steps flesh out the dependency, table-user, settings, and connectivity
+  bodies; the framework (header, per-step switch, footer) is stable.
 --}}
 <div class="community-screen-setup-wizard-body">
+  <p class="community-screen-setup-wizard-progress">{{labels.progress}}</p>
+
+  {{#if isWelcome}}
   <section class="community-screen-setup-wizard-step">
     <h2 class="community-screen-setup-wizard-step-title">{{labels.welcomeTitle}}</h2>
     <p class="community-screen-setup-wizard-lede">{{labels.welcomeBody}}</p>
   </section>
+  {{/if}}
+
+  {{#if isDependencies}}
+  <section class="community-screen-setup-wizard-step">
+    <h2 class="community-screen-setup-wizard-step-title">{{labels.dependenciesTitle}}</h2>
+    <p class="community-screen-setup-wizard-lede">{{labels.dependenciesBody}}</p>
+  </section>
+  {{/if}}
+
+  {{#if isTableUser}}
+  <section class="community-screen-setup-wizard-step">
+    <h2 class="community-screen-setup-wizard-step-title">{{labels.tableUserTitle}}</h2>
+    <p class="community-screen-setup-wizard-lede">{{labels.tableUserBody}}</p>
+    <div class="community-screen-setup-wizard-field">
+      <label class="community-screen-setup-wizard-choice">
+        <input type="radio" name="tableUserMode" value="create" {{#if tableUserModeCreate}}checked{{/if}} />
+        <span>{{labels.modeCreate}}</span>
+      </label>
+      <label class="community-screen-setup-wizard-choice">
+        <input type="radio" name="tableUserMode" value="select" {{#if tableUserModeSelect}}checked{{/if}} />
+        <span>{{labels.modeSelect}}</span>
+      </label>
+    </div>
+  </section>
+  {{/if}}
+
+  {{#if isSettings}}
+  <section class="community-screen-setup-wizard-step">
+    <h2 class="community-screen-setup-wizard-step-title">{{labels.settingsTitle}}</h2>
+    <p class="community-screen-setup-wizard-lede">{{labels.settingsBody}}</p>
+  </section>
+  {{/if}}
+
+  {{#if isConnectivity}}
+  <section class="community-screen-setup-wizard-step">
+    <h2 class="community-screen-setup-wizard-step-title">{{labels.connectivityTitle}}</h2>
+    <p class="community-screen-setup-wizard-lede">{{labels.connectivityBody}}</p>
+  </section>
+  {{/if}}
 </div>
+
+<footer class="community-screen-setup-wizard-footer">
+  <button type="button" class="community-screen-setup-wizard-dismiss" data-action="dismiss">
+    {{labels.dismiss}}
+  </button>
+  <span class="community-screen-setup-wizard-footer-spacer"></span>
+  <button type="button" data-action="back" {{#unless canBack}}disabled{{/unless}}>
+    <i class="fa-solid fa-arrow-left"></i>
+    <span>{{labels.back}}</span>
+  </button>
+  {{#if isLast}}
+  <button type="button" class="community-screen-setup-wizard-primary" data-action="finish">
+    <i class="fa-solid fa-check"></i>
+    <span>{{labels.finish}}</span>
+  </button>
+  {{else}}
+  <button type="button" class="community-screen-setup-wizard-primary" data-action="next">
+    <span>{{labels.next}}</span>
+    <i class="fa-solid fa-arrow-right"></i>
+  </button>
+  {{/if}}
+</footer>

@@ -42,3 +42,69 @@
   line-height: 1.5;
   opacity: 0.9;
 }
+
+/* Small "Step N of 5" progress line above each step. */
+.community-screen-setup-wizard-progress {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+/* Grouped inputs within a step (radios, toggles, selects). */
+.community-screen-setup-wizard-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.community-screen-setup-wizard-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.community-screen-setup-wizard-choice input {
+  flex: 0 0 auto;
+}
+
+/* Pinned footer with Back / Next|Finish and the dismiss link. */
+.community-screen-setup-wizard-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.community-screen-setup-wizard-footer-spacer {
+  flex: 1 1 auto;
+}
+
+.community-screen-setup-wizard-footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.community-screen-setup-wizard-footer button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.community-screen-setup-wizard-dismiss {
+  background: none;
+  border: none;
+  opacity: 0.7;
+  text-decoration: underline;
+}
+
+.community-screen-setup-wizard-primary {
+  font-weight: 600;
+}
