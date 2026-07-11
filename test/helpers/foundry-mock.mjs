@@ -374,6 +374,8 @@ export function installFoundryMock(opts = {}) {
   const CONFIG = { Canvas: { maxZoom: 3.0, minZoom: 0.1 }, debug: { modules: [] } };
   const CONST = {
     DOCUMENT_OWNERSHIP_LEVELS: { NONE: 0, LIMITED: 1, OBSERVER: 2, OWNER: 3 },
+    // keybindings.mjs reads CONST.KEYBINDING_PRECEDENCE.NORMAL at init time.
+    KEYBINDING_PRECEDENCE: { PRIORITY: 0, NORMAL: 1, DEFERRED: 2 },
   };
   const fromUuid = async () => null;
 
